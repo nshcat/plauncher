@@ -19,6 +19,7 @@ public:
 
 protected:
 	void execute_path(const std::wstring& path);
+	void execute_link(const std::wstring& link);
 	std::wstring get_database_path();
 	std::vector<search_entry> search_database(const std::wstring& prompt, bool commandMode);
 	std::string wide_to_narrow(const std::wstring& in);
@@ -29,7 +30,7 @@ protected:
 	std::wstring get_first_token(const std::wstring& prompt);
 	void parse_command(const std::wstring& prompt, std::wstring& cmd, std::vector<std::wstring>& args);
 	bool do_command(const std::wstring& cmd, const std::vector<std::wstring>& args);
-	void add_custom(const std::wstring& name, const std::wstring& path);
+	void add_custom(const std::wstring& name, const std::wstring& path, entry_type type);
 	void remove_custom(const std::wstring& name);
 
 protected:

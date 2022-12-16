@@ -107,7 +107,7 @@
       <AdditionalIncludeDirectories>D:\projects\plauncher\sqlite\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>Shcore.lib;Shlwapi.lib;shell32.lib;sqlite3.lib;Comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\projects\plauncher\sqlite\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -124,7 +124,7 @@
       <AdditionalIncludeDirectories>D:\projects\plauncher\sqlite\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -135,6 +135,7 @@
   <ItemGroup>
     <ClInclude Include="gui.hxx" />
     <ClInclude Include="helpers.hxx" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="search_controller.hxx" />
     <ClInclude Include="search_entry.hxx" />
   </ItemGroup>
@@ -142,6 +143,12 @@
     <ClCompile Include="gui.cxx" />
     <ClCompile Include="main.cxx" />
     <ClCompile Include="search_controller.cxx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="plauncher.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="App.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

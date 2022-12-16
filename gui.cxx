@@ -89,7 +89,7 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				case ODA_SELECT:
 				case ODA_DRAWENTIRE:
 				{
-					if (dis->itemID == 0)
+					if (dis->itemID == this->m_selectedListElement)
 					{
 						HPEN pen = ::CreatePen(PS_SOLID, 1, RGB(240, 216, 192));
 						const auto oldPen = ::SelectObject(dis->hDC, pen);
@@ -129,6 +129,12 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					case entry_type::custom:
 						typeStr = L"custom";
 						break;
+					case entry_type::link:
+						typeStr = L"link";
+						break;
+					case entry_type::steam:
+						typeStr = L"steam";
+						break;
 					default:
 						typeStr = L"unknown";
 						break;
@@ -142,7 +148,6 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					// Get item text
 					const wchar_t* text = item.m_name.c_str();
 
-
 					TEXTMETRIC tm;
 					::GetTextMetrics(dis->hDC, &tm);
 
@@ -155,8 +160,15 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					// Draw usage string
 					if (item.m_type == entry_type::builtin && item.m_usageStr.length() > 0)
 					{
-						SIZE mainTextSz;
-						::GetTextExtentPoint32(dis->hDC, text, textLen, &mainTextSz);
+						// Find longest length among names to align all usage strings the same way
+						int longestWidth = 0;
+						for(int idx = 0; idx < min(this->m_maxListElements, this->m_currentResults.size()); ++idx)
+						{
+							const std::wstring name = this->m_currentResults[idx].m_name;
+							SIZE textSz;
+							::GetTextExtentPoint32(dis->hDC, name.c_str(), name.length(), &textSz);
+							longestWidth = max(longestWidth, textSz.cx);
+						}
 
 						HFONT hInfoFont = CreateFont(this->scale_pixels(12), 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,
 							OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
@@ -173,7 +185,7 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 						::SetTextColor(dis->hDC, RGB(186, 167, 148));
 
-						::TextOut(dis->hDC, this->scale_pixels(4 + 55 + 8 + mainTextSz.cx), yPosItalic, item.m_usageStr.c_str(), item.m_usageStr.length());
+						::TextOut(dis->hDC, this->scale_pixels(4 + 55 + 8 + longestWidth), yPosItalic, item.m_usageStr.c_str(), item.m_usageStr.length());
 
 						::SelectObject(dis->hDC, oldFont);
 						::SetTextColor(dis->hDC, oldColor);
@@ -253,7 +265,11 @@ void gui::on_create()
 		this->m_hwnd,
 		NULL, NULL, NULL
 	);
-	::SendMessage(this->m_hwndListBox, WM_SETFONT, (WPARAM)hFont, 0);
+
+	HFONT hFontList = CreateFont(this->scale_pixels(16), 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,
+		OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+		DEFAULT_PITCH | FF_DONTCARE, TEXT("Tahoma"));
+	::SendMessage(this->m_hwndListBox, WM_SETFONT, (WPARAM)hFontList, 0);
 	// ===
 
 	::SetWindowPos(this->m_hwnd, NULL, 0, 0, this->m_width, this->scale_pixels(this->m_textBoxHeight), SWP_NOMOVE | SWP_NOREPOSITION | SWP_NOOWNERZORDER);
@@ -263,7 +279,7 @@ void gui::on_create()
 	::BringWindowToTop(this->m_hwnd);
 	::SetFocus(this->m_hwndEdit);
 
-	::SetTimer(this->m_hwnd, 1, 200, NULL);
+	::SetTimer(this->m_hwnd, 1, 50, NULL);
 }
 
 int gui::scale_pixels(int in)
@@ -366,6 +382,8 @@ HRESULT gui::create()
 	::SetForegroundWindow(this->m_hwnd);
 	::SetFocus(this->m_hwnd);
 
+	this->m_maxListElements = (int)((monHeight / 2) * 0.75f) / this->scale_pixels(18);
+
 	return S_OK;
 }
 
@@ -389,10 +407,10 @@ void gui::update_list()
 		const auto itemHeight = ::SendMessage(this->m_hwndListBox, LB_GETITEMHEIGHT, 0, 0);
 		const auto totalHeight = (this->m_currentResults.size()) * itemHeight;
 
-		for (const auto& entry : this->m_currentResults)
+		for(auto idx = 0; idx < min(this->m_maxListElements, this->m_currentResults.size()); ++idx)
 		{
+			const auto& entry = this->m_currentResults[idx];
 			const auto retval = SendMessage(this->m_hwndListBox, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(entry.m_name.c_str()));
-			int x = 4 + retval;
 		}
 
 		::ShowWindow(this->m_hwndListBox, SW_SHOW);
@@ -418,6 +436,22 @@ LRESULT gui::edit_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	switch (msg)
 	{
+	case WM_KEYDOWN:
+	{
+		if (wParam == VK_UP)
+		{
+			this->m_selectedListElement = max(0, this->m_selectedListElement - 1);
+			::InvalidateRect(this->m_hwndListBox, NULL, TRUE);
+			return 0;
+		}
+		else if (wParam == VK_DOWN)
+		{
+			this->m_selectedListElement = min(min(this->m_maxListElements - 1, this->m_currentResults.size() - 1), this->m_selectedListElement + 1);
+			::InvalidateRect(this->m_hwndListBox, NULL, TRUE);
+			return 0;
+		}
+		break;
+	}
 	case WM_CHAR:
 	{
 		if (wParam == VK_ESCAPE)
@@ -430,7 +464,7 @@ LRESULT gui::edit_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			bool result = false;
 			if (this->m_currentResults.size() > 0)
 			{
-				result = this->m_controller->commit(this->m_currentResults[0], this->get_prompt());
+				result = this->m_controller->commit(this->m_currentResults[this->m_selectedListElement], this->get_prompt());
 			}
 			else
 			{
@@ -446,6 +480,7 @@ LRESULT gui::edit_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		{
 			::DefSubclassProc(hwnd, msg, wParam, lParam);
 			this->m_currentResults = this->m_controller->perform_search(this->get_prompt());
+			this->m_selectedListElement = 0;
 			this->update_list();
 			return 0;
 		}

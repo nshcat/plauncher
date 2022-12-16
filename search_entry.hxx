@@ -5,7 +5,9 @@ enum class entry_type
 {
 	in_path = 0,
 	custom = 1,
-	builtin = 2		// For built-in commands like "!add"
+	builtin = 2,		// For built-in commands like "!add"
+	link = 3,
+	steam = 4
 };
 
 struct search_entry final

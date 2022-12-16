@@ -24,6 +24,8 @@ std::vector<search_entry> search_controller::perform_search(const std::wstring& 
 
 		std::vector<search_entry> commands = {
 			{ entry_type::builtin, L"!add", L"(name) (path)"},
+			{ entry_type::builtin, L"!addlink", L"(name) (link)"},
+			{ entry_type::builtin, L"!addsteam", L"(name) (appid)"},
 			{ entry_type::builtin, L"!delete", L"(name)"}
 		};
 
@@ -132,6 +134,16 @@ std::vector<search_entry> search_controller::search_database(const std::wstring&
 				if (!commandMode)
 					continue;
 				break;
+			case 3:
+				type = entry_type::link;
+				if (commandMode)
+					continue;
+				break;
+			case 4:
+				type = entry_type::steam;
+				if (commandMode)
+					continue;
+				break;
 			default:
 				continue;
 			}
@@ -217,7 +229,26 @@ bool search_controller::do_command(const std::wstring& cmd, const std::vector<st
 		if (args.size() != 2)
 			return false;
 
-		this->add_custom(args[0], args[1]);
+		this->add_custom(args[0], args[1], entry_type::custom);
+		return true;
+	}
+	else if (cmd == L"!addlink")
+	{
+		if (args.size() != 2)
+			return false;
+
+		this->add_custom(args[0], args[1], entry_type::link);
+		return true;
+	}
+	else if (cmd == L"!addsteam")
+	{
+		if (args.size() != 2)
+			return false;
+
+		wchar_t buf[512];
+		::swprintf_s(buf, L"steam://launch/%s", args[1].c_str());
+
+		this->add_custom(args[0], std::wstring{buf}, entry_type::steam);
 		return true;
 	}
 	else if (cmd == L"!delete")
@@ -253,6 +284,17 @@ bool search_controller::commit(const search_entry& entry, const std::wstring& pr
 				return false;
 
 			this->execute_path(entry.m_path);
+
+			this->increment_usage(entry);
+			return true;
+		}
+		case entry_type::steam:
+		case entry_type::link:
+		{
+			if (entry.m_path.empty())
+				return false;
+
+			this->execute_link(entry.m_path);
 
 			this->increment_usage(entry);
 			return true;
@@ -302,6 +344,11 @@ void search_controller::execute_path(const std::wstring& path)
 	::ShellExecute(NULL, NULL, path.c_str(), NULL, NULL, SW_SHOW);
 }
 
+void search_controller::execute_link(const std::wstring& link)
+{
+	::ShellExecute(NULL, L"open", link.c_str(), NULL, NULL, SW_SHOWNORMAL);
+}
+
 void search_controller::remove_custom(const std::wstring& name)
 {
 	const auto nameNarrow = this->wide_to_narrow(name);
@@ -325,7 +372,7 @@ void search_controller::remove_custom(const std::wstring& name)
 	sqlite3_finalize(stmt);
 }
 
-void search_controller::add_custom(const std::wstring& name, const std::wstring& path)
+void search_controller::add_custom(const std::wstring& name, const std::wstring& path, entry_type type)
 {
 	const auto nameNarrow = this->wide_to_narrow(name);
 	const auto pathNarrow = this->wide_to_narrow(path);
@@ -333,7 +380,7 @@ void search_controller::add_custom(const std::wstring& name, const std::wstring&
 	int rc = 0;
 	char* errmsg = 0;
 
-	const char* sql = "INSERT INTO Targets(name, type, path, count) VALUES (?,1,?,0);";
+	const char* sql = "INSERT INTO Targets(name, type, path, count) VALUES (?,?,?,0);";
 	sqlite3_stmt* stmt;
 	rc = sqlite3_prepare_v2(this->m_dbConn, sql, -1, &stmt, 0);
 	LOG_IF_SQL_ERROR(rc);
@@ -345,7 +392,12 @@ void search_controller::add_custom(const std::wstring& name, const std::wstring&
 	if (rc != SQLITE_OK)
 		return;
 
-	rc = sqlite3_bind_text(stmt, 2, pathNarrow.c_str(), -1, SQLITE_STATIC);
+	rc = sqlite3_bind_int(stmt, 2, static_cast<int>(type));
+	LOG_IF_SQL_ERROR(rc);
+	if (rc != SQLITE_OK)
+		return;
+
+	rc = sqlite3_bind_text(stmt, 3, pathNarrow.c_str(), -1, SQLITE_STATIC);
 	LOG_IF_SQL_ERROR(rc);
 	if (rc != SQLITE_OK)
 		return;

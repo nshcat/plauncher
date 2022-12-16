@@ -49,5 +49,7 @@ private:
 	HWND m_hwndListBox{ };
 	static ATOM m_wndClassAtom;
 	int m_dpi{ };
+	int m_maxListElements{ };
+	int m_selectedListElement{ };
 };
 
