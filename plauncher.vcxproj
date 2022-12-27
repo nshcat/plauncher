@@ -143,6 +143,7 @@
     <ClCompile Include="gui.cxx" />
     <ClCompile Include="main.cxx" />
     <ClCompile Include="search_controller.cxx" />
+    <ClCompile Include="search_entry.cxx" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="plauncher.rc" />

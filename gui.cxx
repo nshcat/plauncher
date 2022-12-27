@@ -88,7 +88,7 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			{
 				case ODA_SELECT:
 				case ODA_DRAWENTIRE:
-				{
+				{				
 					if (dis->itemID == this->m_selectedListElement)
 					{
 						HPEN pen = ::CreatePen(PS_SOLID, 1, RGB(240, 216, 192));
@@ -118,7 +118,7 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					auto yPosItalic = (dis->rcItem.bottom + dis->rcItem.top - tmItalic.tmHeight) / 2;
 
 					const wchar_t* typeStr;
-					switch (item.m_type)
+					switch (item.type())
 					{
 					case entry_type::builtin:
 						typeStr = L"command";
@@ -146,7 +146,7 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					::SelectObject(dis->hDC, oldFont);
 
 					// Get item text
-					const wchar_t* text = item.m_name.c_str();
+					const wchar_t* text = item.name().c_str();
 
 					TEXTMETRIC tm;
 					::GetTextMetrics(dis->hDC, &tm);
@@ -155,40 +155,56 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 					textLen = ::lstrlenW(text);
 
-					::TextOut(dis->hDC, this->scale_pixels(4 + 55), yPos, text, textLen);
+					::TextOut(dis->hDC, this->scale_pixels(4 + 55), yPos - this->scale_pixels(2), text, textLen);
 
-					// Draw usage string
-					if (item.m_type == entry_type::builtin && item.m_usageStr.length() > 0)
+					// Extra draw operations for builtin commands
+					if (item.type() == entry_type::builtin)
 					{
-						// Find longest length among names to align all usage strings the same way
-						int longestWidth = 0;
-						for(int idx = 0; idx < min(this->m_maxListElements, this->m_currentResults.size()); ++idx)
-						{
-							const std::wstring name = this->m_currentResults[idx].m_name;
-							SIZE textSz;
-							::GetTextExtentPoint32(dis->hDC, name.c_str(), name.length(), &textSz);
-							longestWidth = max(longestWidth, textSz.cx);
-						}
-
 						HFONT hInfoFont = CreateFont(this->scale_pixels(12), 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,
 							OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
 							DEFAULT_PITCH | FF_DONTCARE, TEXT("Tahoma"));
 
+						const auto oldFont = ::SelectObject(dis->hDC, hInfoFont);
+
 						TEXTMETRIC tmInfo;
 						::GetTextMetrics(dis->hDC, &tmInfo);
 
-						auto yPosInfo = (dis->rcItem.bottom + dis->rcItem.top - tmInfo.tmHeight) / 2;		
+						auto yPosInfo = (dis->rcItem.bottom + dis->rcItem.top - tmInfo.tmHeight) / 2;
 
-						const auto oldFont = ::SelectObject(dis->hDC, hInfoFont);
+						// Draw usage string
+						if (item.has_usage_str())
+						{					
+							const auto oldColor = ::GetTextColor(dis->hDC);
 
-						const auto oldColor = ::GetTextColor(dis->hDC);
+							// Find longest length among names to align all usage strings the same way
+							if (!this->m_cachedMaxNameWidthValid)
+							{
+								int longestWidth = 0;
+								for (int idx = 0; idx < min(this->m_maxListElements, this->m_currentResults.size()); ++idx)
+								{
+									const std::wstring name = this->m_currentResults[idx].name();
+									SIZE textSz;
+									::GetTextExtentPoint32(dis->hDC, name.c_str(), name.length(), &textSz);
+									longestWidth = max(longestWidth, textSz.cx);
+								}
+								this->m_cachedMaxNameWidth = longestWidth;
+								this->m_cachedMaxNameWidthValid = true;
+							}
 
-						::SetTextColor(dis->hDC, RGB(186, 167, 148));
+							::SetTextColor(dis->hDC, RGB(186, 167, 148));
+							::TextOut(dis->hDC, this->scale_pixels(4 + 55 + 8 + this->m_cachedMaxNameWidth), yPosInfo, item.usage_str().c_str(), item.usage_str().length());
+							::SetTextColor(dis->hDC, oldColor);				
+						}
 
-						::TextOut(dis->hDC, this->scale_pixels(4 + 55 + 8 + longestWidth), yPosItalic, item.m_usageStr.c_str(), item.m_usageStr.length());
+						// Draw description string
+						if (item.has_description())
+						{
+							const auto oldAlign = ::SetTextAlign(dis->hDC, TA_RIGHT);
+							::TextOut(dis->hDC, dis->rcItem.right - this->scale_pixels(4), yPosInfo, item.description().c_str(), item.description().length());
+							::SetTextAlign(dis->hDC, oldAlign);
+						}		
 
 						::SelectObject(dis->hDC, oldFont);
-						::SetTextColor(dis->hDC, oldColor);
 					}
 
 					break;
@@ -355,7 +371,7 @@ HRESULT gui::create()
 	const auto monWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
 	const auto monHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
 
-	const auto windowWidth = (monWidth / 3);
+	const auto windowWidth = (monWidth / 5);
 	const auto windowHeight = 100;
 	const auto windowPosX = monitorInfo.rcMonitor.left + ((monWidth / 2) - (windowWidth / 2));
 	const auto windowPosY = monitorInfo.rcMonitor.top + (monHeight / 3);
@@ -410,7 +426,7 @@ void gui::update_list()
 		for(auto idx = 0; idx < min(this->m_maxListElements, this->m_currentResults.size()); ++idx)
 		{
 			const auto& entry = this->m_currentResults[idx];
-			const auto retval = SendMessage(this->m_hwndListBox, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(entry.m_name.c_str()));
+			const auto retval = SendMessage(this->m_hwndListBox, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(entry.name().c_str()));
 		}
 
 		::ShowWindow(this->m_hwndListBox, SW_SHOW);
@@ -482,6 +498,9 @@ LRESULT gui::edit_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			this->m_currentResults = this->m_controller->perform_search(this->get_prompt());
 			this->m_selectedListElement = 0;
 			this->update_list();
+
+			// Invalidate maximum name width since contents of list might have changed
+			this->m_cachedMaxNameWidthValid = false;
 			return 0;
 		}
 		break;

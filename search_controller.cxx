@@ -23,10 +23,10 @@ std::vector<search_entry> search_controller::perform_search(const std::wstring& 
 		this->parse_command(prompt, cmd, args);
 
 		std::vector<search_entry> commands = {
-			{ entry_type::builtin, L"!add", L"(name) (path)"},
-			{ entry_type::builtin, L"!addlink", L"(name) (link)"},
-			{ entry_type::builtin, L"!addsteam", L"(name) (appid)"},
-			{ entry_type::builtin, L"!delete", L"(name)"}
+			search_entry::create_builtin(L"!add", L"(name) (path)", L"Add a new program"),
+			search_entry::create_builtin(L"!addlink", L"(name) (link)", L"Add a new web link"),
+			search_entry::create_builtin(L"!addsteam", L"(name) (appid)", L"Add a new steam game"),
+			search_entry::create_builtin(L"!delete", L"(name)", L"Delete any added program or link")
 		};
 
 		std::vector<search_entry> matchingCommands{ };
@@ -34,7 +34,7 @@ std::vector<search_entry> search_controller::perform_search(const std::wstring& 
 		std::copy_if(commands.begin(), commands.end(), std::back_inserter(matchingCommands),
 			[&cmd](const search_entry& entry) -> bool
 			{
-				return entry.m_name.rfind(cmd, 0) == 0;
+				return entry.name().rfind(cmd, 0) == 0;
 			}
 		);
 
@@ -53,7 +53,7 @@ void search_controller::increment_usage(const search_entry& entry)
 	int rc = 0;
 	char* errmsg = 0;
 
-	const auto name_narrow = this->wide_to_narrow(entry.m_name);
+	const auto name_narrow = this->wide_to_narrow(entry.name());
 
 	const char* sql = "UPDATE Targets SET count = count + 1 WHERE name = ?;";
 	sqlite3_stmt* stmt;
@@ -148,9 +148,7 @@ std::vector<search_entry> search_controller::search_database(const std::wstring&
 				continue;
 			}
 
-			search_entry entry{ type, this->narrow_to_wide(name) };
-			entry.m_accessed = count;
-			entry.m_path = this->narrow_to_wide(path);
+			search_entry entry{ type, this->narrow_to_wide(name), L"", L"", this->narrow_to_wide(path), static_cast<std::uint64_t>(count) };
 			results.push_back(entry);
 		}
 		else
@@ -160,7 +158,7 @@ std::vector<search_entry> search_controller::search_database(const std::wstring&
 		}
 	}
 
-	std::sort(results.begin(), results.end(), [](const search_entry& lhs, const search_entry& rhs) { return lhs.m_accessed > rhs.m_accessed; });
+	std::sort(results.begin(), results.end(), [](const search_entry& lhs, const search_entry& rhs) { return lhs.access_count() > rhs.access_count(); });
 
 	return results;
 }
@@ -265,12 +263,12 @@ bool search_controller::do_command(const std::wstring& cmd, const std::vector<st
 
 bool search_controller::commit(const search_entry& entry, const std::wstring& prompt)
 {
-	switch (entry.m_type)
+	switch (entry.type())
 	{
 		case entry_type::in_path:
 		{
 			std::wstring filepath;
-			if (!this->find_in_path(entry.m_name, filepath))
+			if (!this->find_in_path(entry.name(), filepath))
 				return false;
 
 			this->execute_path(filepath);
@@ -280,10 +278,10 @@ bool search_controller::commit(const search_entry& entry, const std::wstring& pr
 		}
 		case entry_type::custom:
 		{
-			if (entry.m_path.empty())
+			if (!entry.has_path())
 				return false;
 
-			this->execute_path(entry.m_path);
+			this->execute_path(entry.path());
 
 			this->increment_usage(entry);
 			return true;
@@ -291,10 +289,10 @@ bool search_controller::commit(const search_entry& entry, const std::wstring& pr
 		case entry_type::steam:
 		case entry_type::link:
 		{
-			if (entry.m_path.empty())
+			if (!entry.has_path())
 				return false;
 
-			this->execute_link(entry.m_path);
+			this->execute_link(entry.path());
 
 			this->increment_usage(entry);
 			return true;

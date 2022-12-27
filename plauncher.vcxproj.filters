@@ -41,6 +41,9 @@
     <ClCompile Include="search_controller.cxx">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="search_entry.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="plauncher.rc">

@@ -51,5 +51,8 @@ private:
 	int m_dpi{ };
 	int m_maxListElements{ };
 	int m_selectedListElement{ };
+
+	int m_cachedMaxNameWidth{ };
+	bool m_cachedMaxNameWidthValid{ false };
 };
 
