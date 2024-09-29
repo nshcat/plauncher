@@ -47,6 +47,24 @@ LRESULT gui::mainwnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					}
 				}		
 			}
+			else if (HIWORD(wParam) == EN_SETFOCUS)
+			{
+				if (!this->m_textBoxShown)
+				{
+					this->m_textBoxShown = true;
+				}
+				else
+				{
+					this->m_textBoxInFocus = true;
+				}
+			}
+			else if (HIWORD(wParam) == EN_KILLFOCUS)
+			{
+				if (this->m_textBoxInFocus)
+				{
+					::PostMessage(this->m_hwnd, WM_CLOSE, 0, 0);
+				}
+			}
 			break;
 		}
 		case WM_TIMER:
@@ -467,6 +485,13 @@ LRESULT gui::edit_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			return 0;
 		}
 		break;
+	}
+	case WM_SETFOCUS:
+	{
+		if (reinterpret_cast<HWND>(wParam) == this->m_hwndEdit)
+		{
+			this->m_textBoxInFocus = true;
+		}
 	}
 	case WM_CHAR:
 	{

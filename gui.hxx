@@ -44,6 +44,8 @@ private:
 	long m_posx{ };
 	long m_posy{ };
 	long m_textBoxHeight{ };
+	bool m_textBoxInFocus{ };
+	bool m_textBoxShown{ };
 	HWND m_hwnd{ };
 	HWND m_hwndEdit{ };
 	HWND m_hwndListBox{ };
